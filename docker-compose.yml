@@ -1,0 +1,98 @@
+version: '3.1'
+
+services:
+  reverse-proxy:
+    image: traefik:latest
+    container_name: "traefik"
+    command:
+      # - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=toto@toto.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - "./temp/letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    restart: always
+
+  extranet:
+    image: wordpress
+    restart: always
+    environment:
+      WORDPRESS_DB_HOST: dbExtranet
+      WORDPRESS_DB_USER: exampleuser
+      WORDPRESS_DB_PASSWORD: examplepass
+      WORDPRESS_DB_NAME: exampledb
+    volumes:
+      - ./temp/wordpress:/var/www/html
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.extranet.rule=Host(`$EXTRANET_URL`)"
+      - "traefik.http.routers.extranet.entrypoints=websecure"
+      - "traefik.http.routers.extranet.tls.certresolver=myresolver"
+      - "traefik.http.routers.extranet.service=extranetService"
+      - "traefik.http.services.extranetService.loadBalancer.server.port=80"
+
+  dbExtranet:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: exampledb
+      MYSQL_USER: exampleuser
+      MYSQL_PASSWORD: examplepass
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - ./temp/db:/var/lib/mysql
+
+  vitrine:
+    image: httpd:2.4
+    restart: always
+    volumes:
+      - ./vitrine/:/usr/local/apache2/htdocs/
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vitrine.rule=Host(`$VITRINE_URL`)"
+      - "traefik.http.routers.vitrine.entrypoints=websecure"
+      - "traefik.http.routers.vitrine.tls.certresolver=myresolver"
+      - "traefik.http.routers.vitrine.service=vitrineService"
+      - "traefik.http.services.vitrineService.loadBalancer.server.port=80"
+
+  dbCloud:
+    image: mariadb:10.6
+    restart: always
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    volumes:
+      - ./temp/dbCloud:/var/lib/mysql
+    environment:
+      - MYSQL_PASSWORD=jlksdgsdljg
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MARIADB_RANDOM_ROOT_PASSWORD=1
+
+  cloud:
+    image: nextcloud
+    restart: always
+    volumes:
+      - ./temp/nextcloud:/var/www/html
+    environment:
+      - MYSQL_PASSWORD=jlksdgsdljg
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_HOST=dbCloud
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cloud.rule=Host(`$CLOUD_URL`)"
+      - "traefik.http.routers.cloud.entrypoints=websecure"
+      - "traefik.http.routers.cloud.tls.certresolver=myresolver"
+      - "traefik.http.routers.cloud.service=cloudService"
+      - "traefik.http.services.cloudService.loadBalancer.server.port=80"
