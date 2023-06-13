@@ -82,10 +82,6 @@ fi
 if (($isA > 0 && $isCNAME == 0)); then
 	host=$fqdn
 fi
-echo '$isA' : $isA
-echo '$isCNAME' : $isCNAME
-echo '$host' : $host
-echo '$fqdn' : $fqdn
 
 # On récupère l'adresse ip de l'hote cible à partir des enregistrements DNS publiques
 ipHost=$(dig $host | grep "^$host" | grep A |cut -f5)
@@ -142,10 +138,10 @@ makeVirtualHost $fqdn $destinationDir
 
 # Fonction de création de certificat SSL
 function makeSSL(){
-	certbot --apache -d $fqdn -m $adminEmail -n --agree-tos
+	certbot --apache -d $1 -m $2 -n --agree-tos
 
 }
-makeSSL $fqdn
+makeSSL $fqdn $adminEmail
 
 # Fonction de création de base de données et d'utilisateur MySQL
 function makeDB(){
@@ -160,9 +156,10 @@ function makeDB(){
 	echo "Création: Base de données : $dbName, utilisateur: $userName, mdp: $password"
 }
 
+tempDir="./temp"
 # On créé un dossier temporaire
-if [ ! -d $destinationDir ];then
-	mkdir temp
+if [ ! -d $tempDir ];then
+	mkdir $tempDir
 fi
 
 # Fonction de création du site vitrine 
@@ -177,7 +174,7 @@ function makeVitrine(){
 function makeExtranet(){
 	makeDB wordpress
 	echo "J'installe un wordpress"
-	cd temp
+	cd $tempDir
 	version='6.2.2'
 	wget https://wordpress.org/wordpress-$version.tar.gz
 	tar -xvf wordpress-$version.tar.gz &> /dev/null
@@ -195,7 +192,7 @@ function makeCloud(){
 	tar -xvf nextcloud-26.0.2.tar.bz2 &> /dev/null
 	cp ./nextcloud/* $1 -r
 	chown www-data $1 -R
-		apt install -y\
+	apt install -y\
 		php-dompdf\
 		php-xml\
 		php-curl\
