@@ -1,3 +1,0 @@
-# m h  dom mon dow   command
-*/2 * * * * /home/ubuntu/CESI_TSR_13/backup.sh folder /var/www/extranet.maximer.learn-it.ovh >> /var/log/scriptBackup.log 2>&1
-*/2 * * * * /home/ubuntu/CESI_TSR_13/backup.sh bdd wordpress_db >> /var/log/scriptBackup.log 2>&1
